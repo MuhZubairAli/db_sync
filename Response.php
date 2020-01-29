@@ -10,4 +10,7 @@ class Response {
         echo json_encode($output);
     }
 
+    public static function log($message){
+        error_log(PHP_EOL . $message . PHP_EOL);
+    }
 }

@@ -2,29 +2,33 @@
 require_once 'Db.php';
 
 class Sync {
-    protected $serverName = "M-ZUBAIR-DPO\\DEVSERVER";
-    protected $uid = "root";  
-    protected $pwd = "admin123";
-
-    protected $src_db_name = "PSLM1920";  
-    protected $dest_db_name = "PSLM-SUBS";
-
     protected $src_db;
     protected $dest_db;
+    protected $map;
+    
+    public function __construct($cons,$db_map){
+        $this->src_db = new Db(
+            $cons['source']['server'],
+            $cons['source']['user'],
+            $cons['source']['password'],
+            $cons['source']['database']
+        );
+        $this->dest_db = new Db(
+            $cons['destination']['server'],
+            $cons['destination']['user'],
+            $cons['destination']['password'],
+            $cons['destination']['database']
+        );
 
-    public function __construct(){
-
-        try {  
-            $this->src_db = new Db($this->serverName,$this->uid,$this->pwd,$this->src_db_name);
-            $this->dest_db = new Db($this->serverName,$this->uid,$this->pwd,$this->dest_db_name);
-        } catch (Exception $e) {
-            throw new Exception($e->getMessage());
-        }
-
+        $this->map = $db_map;
     }
 
     public function execute(){
         return $this->src_db->select('select * from [PSLM1920].[DBO].[HH]');
+    }
+
+    public function syncTable($tbl_name){
+
     }
 
     public function destroy() {

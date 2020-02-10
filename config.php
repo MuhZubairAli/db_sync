@@ -17,5 +17,11 @@ class Config {
         ]
     );
 
-    public static $database_structure = array();
+    public static $database_structure = array(
+        // "table_name" => [ primary_key columns list]
+		"LoginActivityLog" => [ "Id" ],
+        "SECTION_A"     => [ "Prcode" ],
+        "SECTION_B"     => [ "Prcode", "IDC" ],
+        "SECTION_B2"    => [ "Prcode", "IDC" ]
+    );
 }

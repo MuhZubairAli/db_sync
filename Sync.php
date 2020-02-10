@@ -4,23 +4,22 @@ require_once 'Db.php';
 class Sync {
     protected $src_db;
     protected $dest_db;
-    protected $map;
     
-    public function __construct($cons,$db_map){
+    public function __construct($cons,&$db_map){
         $this->src_db = new Db(
             $cons['source']['server'],
             $cons['source']['user'],
             $cons['source']['password'],
-            $cons['source']['database']
+            $cons['source']['database'],
+            $db_map
         );
         $this->dest_db = new Db(
             $cons['destination']['server'],
             $cons['destination']['user'],
             $cons['destination']['password'],
-            $cons['destination']['database']
+            $cons['destination']['database'],
+            $db_map
         );
-
-        $this->map = $db_map;
     }
 
     public function execute(){
@@ -31,9 +30,9 @@ class Sync {
 
     }
 
-    public function destroy() {
-        $this->src_db->destroy();
-        $this->dest_db->destroy();
+    public function __destruct() {
+        $this->src_db->__destruct();
+        $this->dest_db->__destruct();
         $this->src_db = null;
         $this->dest_db = null;
     }

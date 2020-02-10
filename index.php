@@ -1,8 +1,7 @@
 <?php
-
-    require 'Sync.php';
-    require 'Response.php';
-    require 'Config.php';
+    require_once 'Sync.php';
+    require_once 'Response.php';
+    require_once 'Config.php';
     
     $response = array();
     try {
@@ -18,6 +17,7 @@
         );
     } finally {
         Response::json($response);
+        $sync->__destruct();
     }
     
 ?>

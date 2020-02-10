@@ -1,4 +1,5 @@
 <?php
+    require_once 'constants.php';
     require_once 'Sync.php';
     require_once 'Response.php';
     require_once 'Config.php';
@@ -19,5 +20,3 @@
         Response::json($response);
         $sync->__destruct();
     }
-    
-?>

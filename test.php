@@ -118,35 +118,95 @@ class Test
     public function insert()
     {
         //return $this->dest_db->get_primary_cols('SECTION_B');
-        return $this->dest_db->insert('SECTION_A', [
-            "Prcode" => "1002304",
-            "B_Code" => "123",
-            "Int_Code" => 345,
-            "Int_Date" => "2204-2-35",
-            "Int_Start_time" => "00:00:00",
-            "Int_End_time" => "23:59:59",
-            "Stat_Int" => 1,
-            "Beh_resp" => 1,
-            "Lang_Int" => 2,
-            "Dist_PSU_off" => 5,
-            "Sup_Code" => 5,
-            "Sup_ver_date" => null,
-            "Edt_Code" => null,
-            "Edt_Date" => "",
-            "Remarks" => "N A",
-            "RespondentId" => 1,
-            "StartLAT" => 1,
-            "StartLONG" => 1,
-            "EndLAT" => 1,
-            "EndLONG" => 1
-        ]);
+        $data = [
+            [
+                "Prcode" => "11111111",
+                "B_Code" => "111",
+                "Int_Code" => 12,
+                "Int_Date" => "2204-2-35",
+                "Int_Start_time" => "00:00:00",
+                "Int_End_time" => "23:59:59",
+                "Stat_Int" => 1,
+                "Beh_resp" => 1,
+                "Lang_Int" => 2,
+                "Dist_PSU_off" => 5,
+                "Sup_Code" => 5,
+                "Sup_ver_date" => null,
+                "Edt_Code" => null,
+                "Edt_Date" => "",
+                "Remarks" => "N A",
+                "RespondentId" => 1,
+                "StartLAT" => 1,
+                "StartLONG" => 1,
+                "EndLAT" => 1,
+                "EndLONG" => 1
+            ],
+            [
+                "Prcode" => "22222",
+                "B_Code" => "22",
+                "Int_Code" => 5,
+                "Int_Date" => "2204-2-35",
+                "Int_Start_time" => "00:00:00",
+                "Int_End_time" => "23:59:59",
+                "Stat_Int" => 1,
+                "Beh_resp" => 1,
+                "Lang_Int" => 2,
+                "Dist_PSU_off" => 5,
+                "Sup_Code" => 5,
+                "Sup_ver_date" => null,
+                "Edt_Code" => null,
+                "Edt_Date" => "",
+                "Remarks" => "N A",
+                "RespondentId" => 1,
+                "StartLAT" => 1,
+                "StartLONG" => 1,
+                "EndLAT" => 1,
+                "EndLONG" => 1
+            ],
+            [
+                "Prcode" => "333333",
+                "B_Code" => "33",
+                "Int_Code" => 3,
+                "Int_Date" => "2204-2-35",
+                "Int_Start_time" => "00:00:00",
+                "Int_End_time" => "23:59:59",
+                "Stat_Int" => 1,
+                "Beh_resp" => 1,
+                "Lang_Int" => 2,
+                "Dist_PSU_off" => 5,
+                "Sup_Code" => 5,
+                "Sup_ver_date" => null,
+                "Edt_Code" => null,
+                "Edt_Date" => "",
+                "Remarks" => "N A",
+                "RespondentId" => 1,
+                "StartLAT" => 1,
+                "StartLONG" => 1,
+                "EndLAT" => 1,
+                "EndLONG" => 1
+            ]
+        ];
+        return $this->dest_db->insert('SECTION_A', $data);
+    }
+
+    public function hash_test()
+    {
+
+        //return $this->src_db->get_hash("Sample_Replacements", 0, 3);
+        return $this->src_db->select("SECTION_B", "*", 5, 3, '', true);
     }
 
     public function run()
     {
-
-        return $this->src_db->hash("Sample_Replacements", 0, 3);
-        return $this->src_db->select("SECTION_B", "*", 5, 3);
+        return $this->dest_db->count('HH');
+        $b = [
+            ['hh' => 1],
+            ['hh' => 2],
+            ['hh' => 3],
+            ['hh' => 4],
+            ['hh' => 5],
+        ];
+        return $this->dest_db->insert('HH', $b);
     }
 }
 

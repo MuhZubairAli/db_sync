@@ -23,7 +23,7 @@ class Db
     public function __construct($host, $user, $pwd, $db, $db_map)
     {
         try {
-            $this->conn = new PDO("sqlsrv:server=$host;Database = $db", $user, $pwd);
+            $this->conn = new PDO("sqlsrv:server=$host;Database=$db", $user, $pwd);
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); //, PDO::ATTR_STRINGIFY_FETCHES  
             $this->tblPrefix = "[{$db}].[dbo]";
             $this->map = &$db_map;
@@ -37,48 +37,54 @@ class Db
     private function get_predicate($table, $row)
     {
         $prd = "";
-        foreach ($this->map[$table] as $key) {
+        foreach ($this->get_primary_cols($table) as $key) {
             $prd .= "[{$table}].[{$key}] = '" . $row[$key] . "' AND ";
         }
         return trim($prd, " AND ");
     }
 
-    public function insert($table_name, $params, $replace = false)
+    public function insert($table_name, $params)
     {
         $table = $this->tblPrefix . '.[' . $table_name . ']';
         $cols = $vals = "(";
-        $set = '';
+        $is2D = false;
+        $first = true;
         foreach ($params as $key => $val) {
-            $cols .= "[" . $key . "], ";
-            $vals .= "'" . $val . "', ";
-            if (array_search($key, $this->map[$table_name]) !== FALSE)
-                continue;
-            $set .= "[" . $key . "]='" . $val . "', ";
+            if (is_array($val))
+                $is2D = true;
+            break;
         }
-        $cols = trim($cols, ", ") . ")";
-        $vals = trim($vals, ", ") . ")";
-        $set = trim($set, ", ");
-
-        if ($replace) {
-            $sql = " 
-            UPDATE {$table} 
-            SET {$set} 
-            WHERE {$this->get_predicate($table_name,$params)}; 
-            IF @@ROWCOUNT=0
-            BEGIN
-                INSERT INTO {$table} {$cols}
-                    OUTPUT Inserted.* 
-                VALUES {$vals};
-            END";
-
-            return $this->exec_stmt($sql);
+        if ($is2D) {
+            foreach ($params as $num => $row) {
+                if (!$first) {
+                    $vals .= " (";
+                }
+                foreach ($row as $key => $val) {
+                    if ($first)
+                        $cols .= "[{$table_name}].[" . $key . "], ";
+                    $vals .= "'" . $val . "', ";
+                }
+                if ($first)
+                    $cols = trim($cols, ", ") . ")";
+                $vals = trim($vals, ", ") . "), ";
+                $first = false;
+            }
+            $vals = trim($vals, ", ");
         } else {
-            $sql = "
-            INSERT INTO {$table} {$cols} 
-                OUTPUT Inserted.* 
-            VALUES {$vals};";
-            return $this->exec_query($sql);
+            foreach ($params as $key => $val) {
+                $cols .= "[" . $key . "], ";
+                $vals .= "'" . $val . "', ";
+            }
+            $cols = trim($cols, ", ") . ")";
+            $vals = trim($vals, ", ") . ")";
         }
+
+        $sql = "
+        INSERT INTO {$table} {$cols} 
+            OUTPUT Inserted.{$this->get_primary_cols($table_name)[0]}
+        VALUES {$vals};";
+
+        return $this->exec_query($sql);
     }
 
     public function update($table_name, $params)
@@ -104,15 +110,19 @@ class Db
         WHERE {$this->get_predicate($table_name,$params)}
         IF @@ROWCOUNT=0 
         BEGIN
-            INSERT INTO {$table} {$cols} 
-                OUTPUT Inserted.* 
+            INSERT INTO {$table} {$cols}
             VALUES {$vals};
         END
         ";
         return $this->exec_stmt($sql);
     }
 
-    public function select($table_name, $cols = '*', $offset = 0, $limit = 100, $predicate = '')
+    public function count($table)
+    {
+        return $this->exec_query("SELECT COUNT(*) as [COUNT] FROM {$table}")[0];
+    }
+
+    public function select($table_name, $cols = '*', $offset = 0, $limit = BLOCK_SIZE, $predicate = '', $ROW_ID = FALSE)
     {
         $table = $this->tblPrefix . '.[' . $table_name . ']';
         $selection = '';
@@ -126,21 +136,28 @@ class Db
         } elseif ($cols === '*' || $cols === '' || $cols === null)
             $selection = $table . '.*';
         $predicate = (!empty($predicate)) ? "WHERE {$predicate}" : '';
+
+        if ($ROW_ID)
+            $selection = "ROW_NUMBER() OVER(ORDER BY {$this->get_primary_cols_string($table_name)}) as ROW_ID, {$selection}";
+
         $sql = "
         SELECT
-            ROW_NUMBER() OVER(ORDER BY {$this->get_primary_cols($table_name)}) as ROW_ID,
             {$selection}
         FROM {$table} {$predicate}
-        ORDER BY {$this->get_primary_cols($table_name)}
+        ORDER BY {$this->get_primary_cols_string($table_name)}
         OFFSET {$offset} ROWS
         FETCH NEXT {$limit} ROWS ONLY;
         ";
         return $this->exec_query($sql);
     }
 
-    public function hash($table, $offset = 0, $limit = 100)
+    public function get_hash($table, $offset = 0, $limit = BLOCK_SIZE)
     {
-        $cols = $this->get_cols_string($table);
+        $c = $this->get_cols($table);
+        $cols = '';
+        foreach ($c as $col)
+            $cols .= "CAST([{$table}].[{$col}] AS VARCHAR) + ";
+        $cols = trim($cols, ' + ');
         $sql = "
         DECLARE @EncryptAlgorithm VARCHAR(3)
         DECLARE @DatatoEncrypt VARCHAR(MAX)
@@ -151,7 +168,7 @@ class Db
         SET @EncryptAlgorithm = 'MD5'
         SET @DatatoEncrypt = LEFT((
             SELECT
-                CONCAT({$cols})
+                {$cols}
             FROM 
                 [{$table}]
             ORDER BY {$this->get_primary_cols_string($table)}
@@ -247,6 +264,36 @@ class Db
             throw new Exception("Unknown error occurred while executing SQL statement | " . $e->getMessage());
         }
     }
+
+    public function get_block($table, $blockNumber, $skipRows = 0)
+    {
+        $offset = bcadd(bcmul($blockNumber, BLOCK_SIZE), $skipRows);
+        $limit = bcsub(BLOCK_SIZE, $skipRows);
+        return $this->select($table, '*', $offset, $limit);
+    }
+
+    public function store_block($table, $blockData)
+    {
+        if (count($blockData) > 0) {
+            return $this->insert($table, $blockData);
+        }
+
+        return null;
+    }
+
+    public function update_block($table, $blockData)
+    {
+        if (count($blockData) > 0) {
+            $logs = array();
+            foreach ($blockData as $row) {
+                $logs[] = $this->update($table, $row);
+            }
+            return $logs;
+        }
+
+        return null;
+    }
+
     public function __destruct()
     {
         $this->conn = null;

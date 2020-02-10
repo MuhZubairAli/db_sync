@@ -142,11 +142,23 @@ class Test
         ]);
     }
 
-    public function run()
+    public function hash_test()
     {
 
-        return $this->src_db->hash("Sample_Replacements", 0, 3);
-        return $this->src_db->select("SECTION_B", "*", 5, 3);
+        //return $this->src_db->get_hash("Sample_Replacements", 0, 3);
+        return $this->src_db->select("SECTION_B", "*", 5, 3, '', true);
+    }
+
+    public function run()
+    {
+        $b = [
+            ['hh' => 1],
+            ['hh' => 2],
+            ['hh' => 3],
+            ['hh' => 4],
+            ['hh' => 5],
+        ];
+        return $this->dest_db->insert('HH', $b);
     }
 }
 

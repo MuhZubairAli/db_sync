@@ -23,6 +23,7 @@ class Config
         "LoginActivityLog"  => ["Id"],
         "SECTION_A"     => ["Prcode"],
         "SECTION_B"     => ["Prcode", "IDC"],
-        "SECTION_B2"    => ["Prcode", "IDC"]
+        "SECTION_B2"    => ["Prcode", "IDC"],
+        "Sample_Replacements"   => ["Prcode", "BlockCode", "sno1"]
     );
 }

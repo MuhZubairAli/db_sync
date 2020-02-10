@@ -144,7 +144,9 @@ class Test
 
     public function run()
     {
-        return $this->src_db->select("SECTION_A", "*", 52, 10);
+
+        return $this->src_db->hash("Sample_Replacements", 0, 3);
+        return $this->src_db->select("SECTION_B", "*", 5, 3);
     }
 }
 

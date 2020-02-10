@@ -138,9 +138,9 @@ class Db
         return $this->exec_query($sql);
     }
 
-    public function hash($table, $blockNumber = null)
+    public function hash($table, $offset = 0, $limit = 100)
     {
-        $cols = implode(',', $this->src_db->get_cols($table));
+        $cols = $this->get_cols_string($table);
         $sql = "
         DECLARE @EncryptAlgorithm VARCHAR(3)
         DECLARE @DatatoEncrypt VARCHAR(MAX)
@@ -153,12 +153,13 @@ class Db
             SELECT
                 CONCAT({$cols})
             FROM 
-                [{$table}] 
-            WHERE
-                [Id] BETWEEN 1 AND 100
+                [{$table}]
+            ORDER BY {$this->get_primary_cols_string($table)}
+            OFFSET {$offset} ROWS
+            FETCH NEXT {$limit} ROWS ONLY
             FOR XML Path('')
         ), 9999999999)
-
+        
         IF @DataToEncrypt IS NOT NULL
         BEGIN
             SET @Index = 1
@@ -182,7 +183,7 @@ class Db
     public function get_cols($table)
     {
         $cols = $this->exec_query("
-        DECLARE @s VARCHAR(500)
+        DECLARE @s VARCHAR(1000)
         SELECT @s =  ISNULL(@s+';','') + c.name   
         FROM
             sys.all_columns c join sys.tables  t 
@@ -193,14 +194,29 @@ class Db
         return explode(";", $cols[0]['cols']);
     }
 
+    public function get_cols_string($table)
+    {
+        $cols_raw = $this->get_cols($table);
+        $cols = '';
+        array_map(function ($col) use (&$cols, $table) {
+            $cols .= "[{$table}].[{$col}], ";
+        }, $cols_raw);
+        return trim($cols, ', ');
+    }
+
     public function get_primary_cols($table)
+    {
+        return $this->map[$table];
+    }
+
+    public function get_primary_cols_string($table)
     {
         $cols = '';
         array_map(
             function ($col) use (&$cols, $table) {
-                $cols .= "[{$table}].[{$col}]";
+                $cols .= "[{$table}].[{$col}], ";
             },
-            $this->map[$table]
+            $this->get_primary_cols($table)
         );
         return trim($cols, ', ');
     }

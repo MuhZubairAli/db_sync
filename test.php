@@ -1,33 +1,36 @@
 <?php
-    require_once 'Sync.php';
-    require_once 'Response.php';
-    require_once 'Config.php';
+require_once 'Sync.php';
+require_once 'Response.php';
+require_once 'Config.php';
 
-    class Test {
-        protected $src_db;
-        protected $dest_db;
-        
-        public function __construct($cons,&$db_map){
-            $this->src_db = new Db(
-                $cons['source']['server'],
-                $cons['source']['user'],
-                $cons['source']['password'],
-                $cons['source']['database'],
-                $db_map
-            );
-            $this->dest_db = new Db(
-                $cons['destination']['server'],
-                $cons['destination']['user'],
-                $cons['destination']['password'],
-                $cons['destination']['database'],
-                $db_map
-            );
-        }
-    
-        public function match_blocks2(){
-            $table = "LoginActivityLog";
-            $cols = implode(',',$this->src_db->get_cols($table));
-            $sql = "
+class Test
+{
+    protected $src_db;
+    protected $dest_db;
+
+    public function __construct($cons, &$db_map)
+    {
+        $this->src_db = new Db(
+            $cons['source']['server'],
+            $cons['source']['user'],
+            $cons['source']['password'],
+            $cons['source']['database'],
+            $db_map
+        );
+        $this->dest_db = new Db(
+            $cons['destination']['server'],
+            $cons['destination']['user'],
+            $cons['destination']['password'],
+            $cons['destination']['database'],
+            $db_map
+        );
+    }
+
+    public function match_blocks2()
+    {
+        $table = "LoginActivityLog";
+        $cols = implode(',', $this->src_db->get_cols($table));
+        $sql = "
             DECLARE @EncryptAlgorithm VARCHAR(3)
             DECLARE @DatatoEncrypt VARCHAR(MAX)
             DECLARE @Index INTEGER
@@ -62,14 +65,14 @@
 
             SELECt CAST(@EncryptedResult as varchar) as [HASH]";
 
-            return $this->src_db->exec_query($sql);
-
-        }
-
+        return $this->src_db->exec_query($sql);
+    }
 
 
-        public function match_blocks(){
-            $hash1 = $this->src_db->select("SELECT CAST(
+
+    public function match_blocks()
+    {
+        $hash1 = $this->src_db->select("SELECT CAST(
                 HASHBYTES('MD5',
                     LEFT(
                         (
@@ -87,7 +90,7 @@
             ) AS [HASH]
             ")[0]['HASH'];
 
-            $hash2 = $this->src_db->select("SELECT CAST(
+        $hash2 = $this->src_db->select("SELECT CAST(
                 HASHBYTES('MD5',
                     LEFT(
                         (
@@ -106,51 +109,70 @@
             ")[0]['HASH'];
 
 
-            if($hash1===$hash2)
-                die("Passed");
-            else
-                die("Failed");
-        }
-
-        public function run() {
-            return $this->dest_db->insert('LoginActivityLog', [
-                'Id' => 15,
-                'UserID' => 334,
-                'TimeStamp' => '2020-12-11',
-                'DeviceID' => '98765'
-            ]);
-        }
-    
+        if ($hash1 === $hash2)
+            die("Passed");
+        else
+            die("Failed");
     }
 
-
-    /*----------------------------------------------------------------------------------
-    ----------------------------------------------------------------------------------*/
-
-
-    $response = array();
-    try {
-        // $sync = new Sync(
-        //     Config::$connections,
-        //     Config::$database_structure
-        // );
-        // $response = $sync->execute();
-        
-        $test = new Test(
-            Config::$connections,
-            Config::$database_structure
-        );
-
-        Response::json(
-            $test->run()
-        );
-
-    } catch(Exception $e){
-        $response = array(
-            'message' => $e->getMessage(),
-            'backtrace' => $e->getTrace()
-        );
-        Response::json($response);
+    public function insert()
+    {
+        //return $this->dest_db->get_primary_cols('SECTION_B');
+        return $this->dest_db->insert('SECTION_A', [
+            "Prcode" => "1002304",
+            "B_Code" => "123",
+            "Int_Code" => 345,
+            "Int_Date" => "2204-2-35",
+            "Int_Start_time" => "00:00:00",
+            "Int_End_time" => "23:59:59",
+            "Stat_Int" => 1,
+            "Beh_resp" => 1,
+            "Lang_Int" => 2,
+            "Dist_PSU_off" => 5,
+            "Sup_Code" => 5,
+            "Sup_ver_date" => null,
+            "Edt_Code" => null,
+            "Edt_Date" => "",
+            "Remarks" => "N A",
+            "RespondentId" => 1,
+            "StartLAT" => 1,
+            "StartLONG" => 1,
+            "EndLAT" => 1,
+            "EndLONG" => 1
+        ]);
     }
-    
-?>
+
+    public function run()
+    {
+        return $this->src_db->select("SECTION_A", "*", 52, 10);
+    }
+}
+
+
+/*------------------------------------------------------------------------
+    --------------------------------------------------------------------*/
+
+
+$response = array();
+try {
+    // $sync = new Sync(
+    //     Config::$connections,
+    //     Config::$database_structure
+    // );
+    // $response = $sync->execute();
+
+    $test = new Test(
+        Config::$connections,
+        Config::$database_structure
+    );
+
+    Response::json(
+        $test->run()
+    );
+} catch (Exception $e) {
+    $response = array(
+        'message' => $e->getMessage(),
+        'backtrace' => $e->getTrace()
+    );
+    Response::json($response);
+}

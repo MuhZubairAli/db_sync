@@ -1,118 +1,146 @@
 <?php
 
-class Db {
+/**
+ * Database connections and operation class
+ * query to force identity insertion 
+ * //SET IDENTITY_INSERT {$table} ON;
+ */
+class Db
+{
     private $conn;
     private $tblPrefix;
     protected $map;
 
-    public function __construct($host,$user,$pwd,$db,$db_map){
-        try {  
-           $this->conn = new PDO( "sqlsrv:server=$host;Database = $db", $user, $pwd);   
-           $this->conn->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION ); //, PDO::ATTR_STRINGIFY_FETCHES  
-           $this->tblPrefix = "[{$db}].[dbo]";
-           $this->map =& $db_map;
-        }  
-        
-        catch( PDOException $e ) {  
-           throw new Exception( "Error connecting to SQL Server | ". $e->getMessage() );   
-        }
-
-        catch( Exception $e ) {
-            throw new Exception( "Error connecting to SQL Server | ". $e->getMessage() );
+    /**
+     * Explicit constructor
+     *
+     * @param [string] $host
+     * @param [string] $user
+     * @param [string] $pwd
+     * @param [string] $db
+     * @param [mixed] $db_map
+     */
+    public function __construct($host, $user, $pwd, $db, $db_map)
+    {
+        try {
+            $this->conn = new PDO("sqlsrv:server=$host;Database = $db", $user, $pwd);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); //, PDO::ATTR_STRINGIFY_FETCHES  
+            $this->tblPrefix = "[{$db}].[dbo]";
+            $this->map = &$db_map;
+        } catch (PDOException $e) {
+            throw new Exception("Error connecting to SQL Server | " . $e->getMessage());
+        } catch (Exception $e) {
+            throw new Exception("Error connecting to SQL Server | " . $e->getMessage());
         }
     }
 
-    private function getPredicate($table, $row){
+    private function get_predicate($table, $row)
+    {
         $prd = "";
-        foreach($this->map[$table] as $key){
-            $prd .= "[{$table}].[{$key}] = '".$row[$key]."' AND ";
+        foreach ($this->map[$table] as $key) {
+            $prd .= "[{$table}].[{$key}] = '" . $row[$key] . "' AND ";
         }
         return trim($prd, " AND ");
     }
 
-    public function insert($table_name,$params,$replace=false) {
-        $table = $this->tblPrefix.'.['.$table_name.']';
+    public function insert($table_name, $params, $replace = false)
+    {
+        $table = $this->tblPrefix . '.[' . $table_name . ']';
         $cols = $vals = "(";
-        foreach ($params as $key=>$val){
+        $set = '';
+        foreach ($params as $key => $val) {
             $cols .= "[" . $key . "], ";
             $vals .= "'" . $val . "', ";
-            if(array_search($key, $this->map[$table_name]) !== FALSE)
+            if (array_search($key, $this->map[$table_name]) !== FALSE)
                 continue;
-            $set .= "[".$key."]='".$val."', ";
+            $set .= "[" . $key . "]='" . $val . "', ";
         }
-        $cols = trim($cols,", ").")";
-        $vals = trim($vals,", ").")";
-        $set = trim($set,", ");
+        $cols = trim($cols, ", ") . ")";
+        $vals = trim($vals, ", ") . ")";
+        $set = trim($set, ", ");
 
-        if($replace){
+        if ($replace) {
             $sql = " 
             UPDATE {$table} 
             SET {$set} 
-            WHERE {$this->getPredicate($table_name,$params)}; 
+            WHERE {$this->get_predicate($table_name,$params)}; 
             IF @@ROWCOUNT=0
             BEGIN
-                SET IDENTITY_INSERT {$table} ON;
                 INSERT INTO {$table} {$cols}
-                    OUTPUT Inserted.ID 
+                    OUTPUT Inserted.* 
                 VALUES {$vals};
             END";
-        }else
+
+            return $this->exec_stmt($sql);
+        } else {
             $sql = "
-            SET IDENTITY_INSERT {$table} ON; 
             INSERT INTO {$table} {$cols} 
-                OUTPUT Inserted.ID 
+                OUTPUT Inserted.* 
             VALUES {$vals};";
-        return $this->exec_query( $sql );
+            return $this->exec_query($sql);
+        }
     }
 
-    public function update($table_name,$params){
-        $table = $this->tblPrefix.'.['.$table_name.']';
+    public function update($table_name, $params)
+    {
+        $table = $this->tblPrefix . '.[' . $table_name . ']';
         $cols = $vals = "(";
         $set = "";
-        foreach ($params as $key=>$val){
+        foreach ($params as $key => $val) {
             $cols .= "[" . $key . "], ";
             $vals .= "'" . $val . "', ";
 
-            if(array_search($key, $this->map[$table_name]) !== FALSE)
+            if (array_search($key, $this->map[$table_name]) !== FALSE)
                 continue;
-            $set .= "[".$key."]='".$val."', ";
+            $set .= "[" . $key . "]='" . $val . "', ";
         }
-        $cols = trim($cols,", ").")";
-        $vals = trim($vals,", ").")";
-        $set = trim($set,", ");
+        $cols = trim($cols, ", ") . ")";
+        $vals = trim($vals, ", ") . ")";
+        $set = trim($set, ", ");
 
         $sql = "
         UPDATE {$table} 
-        SET {$set} 
-        WHERE {$this->getPredicate($table_name,$params)}; 
+        SET {$set}
+        WHERE {$this->get_predicate($table_name,$params)}
         IF @@ROWCOUNT=0 
         BEGIN
-            SET IDENTITY_INSERT {$table} ON; 
             INSERT INTO {$table} {$cols} 
-                OUTPUT Inserted.ID 
+                OUTPUT Inserted.* 
             VALUES {$vals};
-        END";
-        
-        return $this->exec_stmt( $sql );
+        END
+        ";
+        return $this->exec_stmt($sql);
     }
-    
-    public function select($query){
-        try {
-            $stmt = $this->conn->query( $query ); 
-            //return $stmt->fetch( PDO::FETCH_ASSOC );
-            $ds = array();  
-            while ( $row = $stmt->fetch( PDO::FETCH_ASSOC ) ){   
-                $ds[] = $row;
-            }
-            return $ds;
-        } catch (PDOException $e) {
-            throw new Exception("Failed to execute SQL statement | ". $e->getMessage());
-        }
-        
+
+    public function select($table_name, $cols = '*', $offset = 0, $limit = 100, $predicate = '')
+    {
+        $table = $this->tblPrefix . '.[' . $table_name . ']';
+        $selection = '';
+        if (is_array($cols)) {
+            array_map(
+                function ($col) use (&$selection, $table) {
+                    $selection .= $table . '[' . $col . '], ';
+                },
+                array_keys($cols)
+            );
+        } elseif ($cols === '*' || $cols === '' || $cols === null)
+            $selection = $table . '.*';
+        $predicate = (!empty($predicate)) ? "WHERE {$predicate}" : '';
+        $sql = "
+        SELECT
+            ROW_NUMBER() OVER(ORDER BY {$this->get_primary_cols($table_name)}) as ROW_ID,
+            {$selection}
+        FROM {$table} {$predicate}
+        ORDER BY {$this->get_primary_cols($table_name)}
+        OFFSET {$offset} ROWS
+        FETCH NEXT {$limit} ROWS ONLY;
+        ";
+        return $this->exec_query($sql);
     }
-    
-    public function hash($table,$blockNumber=null) {
-        $cols = implode(',',$this->src_db->get_cols($table));
+
+    public function hash($table, $blockNumber = null)
+    {
+        $cols = implode(',', $this->src_db->get_cols($table));
         $sql = "
         DECLARE @EncryptAlgorithm VARCHAR(3)
         DECLARE @DatatoEncrypt VARCHAR(MAX)
@@ -121,7 +149,7 @@ class Db {
         DECLARE @EncryptedResult VARBINARY(MAX)
 
         SET @EncryptAlgorithm = 'MD5'
-        SEt @DatatoEncrypt = LEFT((
+        SET @DatatoEncrypt = LEFT((
             SELECT
                 CONCAT({$cols})
             FROM 
@@ -147,11 +175,12 @@ class Db {
         END
 
         SELECT CAST(@EncryptedResult as varchar) as [HASH]";
-        
-        return $this->exec_query( $sql );
+
+        return $this->exec_query($sql);
     }
 
-    public function get_cols($table){
+    public function get_cols($table)
+    {
         $cols = $this->exec_query("
         DECLARE @s VARCHAR(500)
         SELECT @s =  ISNULL(@s+';','') + c.name   
@@ -161,34 +190,49 @@ class Db {
         WHERE t.name = '{$table}'
         SELECT  @s cols
         ");
-        return explode(";",$cols[0]['cols']);
+        return explode(";", $cols[0]['cols']);
     }
 
-    public function exec_query($sql){
+    public function get_primary_cols($table)
+    {
+        $cols = '';
+        array_map(
+            function ($col) use (&$cols, $table) {
+                $cols .= "[{$table}].[{$col}]";
+            },
+            $this->map[$table]
+        );
+        return trim($cols, ', ');
+    }
+
+    public function exec_query($sql)
+    {
         try {
-            $ds = array();  
-            $stmt = $this->conn->query( $sql ); 
-            while ( $row = $stmt->fetch( PDO::FETCH_ASSOC ) ){   
+            $ds = array();
+            $stmt = $this->conn->query($sql);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $ds[] = $row;
             }
             return $ds;
         } catch (PDOException $e) {
-            throw new Exception("Failed to execute SQL query | ". $e->getMessage());
-        } catch(Exception $e) {
-            throw new Exception("Unknown error occurred while executing SQL query | ". $e->getMessage());
+            throw new Exception("Failed to execute SQL query | " . $e->getMessage());
+        } catch (Exception $e) {
+            throw new Exception("Unknown error occurred while executing SQL query | " . $e->getMessage());
         }
     }
 
-    public function exec_stmt($sql) {
+    public function exec_stmt($sql)
+    {
         try {
-            return $this->conn->query( $sql );
+            return $this->conn->query($sql);
         } catch (PDOException $e) {
-            throw new Exception("Failed to execute SQL statement | ". $e->getMessage());
-        } catch(Exception $e) {
-            throw new Exception("Unknown error occurred while executing SQL statement | ". $e->getMessage());
+            throw new Exception("Failed to execute SQL statement | " . $e->getMessage());
+        } catch (Exception $e) {
+            throw new Exception("Unknown error occurred while executing SQL statement | " . $e->getMessage());
         }
     }
-    public function __destruct(){
+    public function __destruct()
+    {
         $this->conn = null;
     }
 }

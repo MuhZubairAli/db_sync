@@ -22,6 +22,7 @@ class Sync {
         );
     }
 
+    /* Main Driver function for syncing databases */
     public function execute(){
         return $this->src_db->select('select * from [PSLM1920].[DBO].[HH]');
     }

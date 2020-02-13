@@ -1,4 +1,5 @@
 <?php
+require_once 'constants.php';
 require_once 'Sync.php';
 require_once 'Response.php';
 require_once 'Config.php';
@@ -198,15 +199,18 @@ class Test
 
     public function run()
     {
-        return $this->dest_db->count('HH');
+        var_dump($this->src_db->get_block_hash('SECTION_A', 1));
+        echo PHP_EOL . PHP_EOL;
+        var_dump($this->dest_db->get_block_hash('SECTION_A', 1));
+        die;
+        // $a = $this->dest_db->get_block_hash('HH', 1)[0];
+        // $b = $this->src_db->get_block_hash('HH', 1)[0];
+        // return [$b['HASH'], $a['HASH'], $a['HASH'] === $b['HASH'], strcmp($b['HASH'], $b['HASH'])];
         $b = [
-            ['hh' => 1],
-            ['hh' => 2],
-            ['hh' => 3],
-            ['hh' => 4],
-            ['hh' => 5],
+            ['Id' => 1197, 'UserId' => 122, 'TimeStamp' => '2015-12-12', 'DeviceID' => 1111111111],
+            ['Id' => 1000, 'UserId' => 122, 'TimeStamp' => '2015-12-12', 'DeviceID' => 11111111111],
         ];
-        return $this->dest_db->insert('HH', $b);
+        return $this->dest_db->insert('LoginActivityLog', $b);
     }
 }
 

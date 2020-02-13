@@ -10,6 +10,7 @@ class Db
     private $conn;
     private $tblPrefix;
     protected $map;
+    protected $invalid_chars = ["'", '"', "`"];
 
     /**
      * Explicit constructor
@@ -43,7 +44,7 @@ class Db
         return trim($prd, " AND ");
     }
 
-    public function insert($table_name, $params)
+    public function insert($table_name, &$params, $force = false)
     {
         $table = $this->tblPrefix . '.[' . $table_name . ']';
         $cols = $vals = "(";
@@ -84,10 +85,13 @@ class Db
             OUTPUT Inserted.{$this->get_primary_cols($table_name)[0]}
         VALUES {$vals};";
 
+        if ($force)
+            $sql = "SET IDENTITY_INSERT {$table} ON; {$sql} SET IDENTITY_INSERT {$table} OFF;";
+
         return $this->exec_query($sql);
     }
 
-    public function update($table_name, $params)
+    public function update($table_name, &$params, $force = false)
     {
         $table = $this->tblPrefix . '.[' . $table_name . ']';
         $cols = $vals = "(";
@@ -104,6 +108,13 @@ class Db
         $vals = trim($vals, ", ") . ")";
         $set = trim($set, ", ");
 
+        if (empty($set)) {
+            foreach ($params as $key => $val) {
+                $set .= "[" . $key . "]='" . $val . "', ";
+            }
+            $set = trim($set, ", ");
+        }
+
         $sql = "
         UPDATE {$table} 
         SET {$set}
@@ -112,8 +123,100 @@ class Db
         BEGIN
             INSERT INTO {$table} {$cols}
             VALUES {$vals};
-        END
+        END; 
         ";
+
+        if ($force)
+            $sql = "SET IDENTITY_INSERT {$table} ON; {$sql} SET IDENTITY_INSERT {$table} OFF;";
+
+        return $this->exec_stmt($sql);
+    }
+
+    public function insert_filtered($table_name, &$params, $force = false)
+    {
+        $table = $this->tblPrefix . '.[' . $table_name . ']';
+        $cols = $vals = "(";
+        $is2D = false;
+        $first = true;
+        foreach ($params as $key => $val) {
+            if (is_array($val))
+                $is2D = true;
+            break;
+        }
+        if ($is2D) {
+            foreach ($params as $num => $row) {
+                if (!$first) {
+                    $vals .= " (";
+                }
+                foreach ($row as $key => $val) {
+                    if ($first)
+                        $cols .= "[{$table_name}].[" . $key . "], ";
+                    $vals .= "'" . str_replace($this->invalid_chars, '', $val) . "', ";
+                }
+                if ($first)
+                    $cols = trim($cols, ", ") . ")";
+                $vals = trim($vals, ", ") . "), ";
+                $first = false;
+            }
+            $vals = trim($vals, ", ");
+        } else {
+            foreach ($params as $key => $val) {
+                $cols .= "[" . $key . "], ";
+                $vals .= "'" . str_replace($this->invalid_chars, '', $val) . "', ";
+            }
+            $cols = trim($cols, ", ") . ")";
+            $vals = trim($vals, ", ") . ")";
+        }
+
+        $sql = "
+        INSERT INTO {$table} {$cols} 
+            OUTPUT Inserted.{$this->get_primary_cols($table_name)[0]}
+        VALUES {$vals};";
+
+        if ($force)
+            $sql = "SET IDENTITY_INSERT {$table} ON; {$sql} SET IDENTITY_INSERT {$table} OFF;";
+
+        return $this->exec_query($sql);
+    }
+
+    public function update_filtered($table_name, &$params, $force = false)
+    {
+        $table = $this->tblPrefix . '.[' . $table_name . ']';
+        $cols = $vals = "(";
+        $set = "";
+        foreach ($params as $key => $val) {
+            $cols .= "[" . $key . "], ";
+            $vals .= "'" . str_replace($this->invalid_chars, '', $val) . "', ";
+
+            if (array_search($key, $this->map[$table_name]) !== FALSE)
+                continue;
+            $set .= "[" . $key . "]='" . str_replace($this->invalid_chars, '', $val) . "', ";
+        }
+        $cols = trim($cols, ", ") . ")";
+        $vals = trim($vals, ", ") . ")";
+        $set = trim($set, ", ");
+
+        if (empty($set)) {
+            foreach ($params as $key => $val) {
+                $set .= "[" . $key . "]='" . str_replace($this->invalid_chars, '', $val) . "', ";
+            }
+            $set = trim($set, ", ");
+        }
+
+        $sql = "
+        UPDATE {$table} 
+        SET {$set}
+        WHERE {$this->get_predicate($table_name,$params)}
+        IF @@ROWCOUNT=0 
+        BEGIN
+            INSERT INTO {$table} {$cols}
+            VALUES {$vals};
+        END; 
+        ";
+
+        if ($force)
+            $sql = "SET IDENTITY_INSERT {$table} ON; {$sql} SET IDENTITY_INSERT {$table} OFF;";
+
         return $this->exec_stmt($sql);
     }
 
@@ -151,26 +254,38 @@ class Db
         return $this->exec_query($sql);
     }
 
+    public function get_checksum($table)
+    {
+        $table_name = $this->tblPrefix . '.[' . $table . ']';
+        return $this->exec_query("SELECT CHECKSUM_AGG(BINARY_CHECKSUM(*)) as [HASH] FROM {$table_name}")[0];
+    }
+
     public function get_hash($table, $offset = 0, $limit = BLOCK_SIZE)
     {
+        $table_name = $this->tblPrefix . '.[' . $table . ']';
         $c = $this->get_cols($table);
         $cols = '';
-        foreach ($c as $col)
-            $cols .= "CAST([{$table}].[{$col}] AS VARCHAR) + ";
-        $cols = trim($cols, ' + ');
+        if (count($c) > 1) {
+            $cols = "CONCAT(";
+            foreach ($c as $col) {
+                $cols .= "[{$table}].[{$col}], ";
+            }
+            $cols = trim($cols, ', ') . ")";
+        } else
+            $cols = $c[0];
         $sql = "
-        DECLARE @EncryptAlgorithm VARCHAR(3)
+        DECLARE @EncryptAlgorithm VARCHAR(10)
         DECLARE @DatatoEncrypt VARCHAR(MAX)
         DECLARE @Index INTEGER
         DECLARE @DataToEncryptLength INTEGER
         DECLARE @EncryptedResult VARBINARY(MAX)
 
-        SET @EncryptAlgorithm = 'MD5'
+        SET @EncryptAlgorithm = 'SHA2_256'
         SET @DatatoEncrypt = LEFT((
             SELECT
                 {$cols}
             FROM 
-                [{$table}]
+                {$table_name}
             ORDER BY {$this->get_primary_cols_string($table)}
             OFFSET {$offset} ROWS
             FETCH NEXT {$limit} ROWS ONLY
@@ -192,9 +307,10 @@ class Db
             SET @EncryptedResult =   HASHBYTES(@EncryptAlgorithm, @EncryptedResult)
         END
 
-        SELECT CAST(@EncryptedResult as varchar) as [HASH]";
-
-        return $this->exec_query($sql);
+        SELECT CAST(@EncryptedResult AS VARCHAR) as [HASH]";
+        // echo $sql;
+        // die;
+        return $this->exec_query($sql)[0];
     }
 
     public function get_cols($table)
@@ -267,35 +383,59 @@ class Db
 
     public function get_block($table, $blockNumber, $skipRows = 0)
     {
-        $offset = bcadd(bcmul($blockNumber, BLOCK_SIZE), $skipRows);
+        if ($blockNumber < 1)
+            throw new Exception("Block number must be a Natural number");
+
+        $offset = bcadd(bcmul(($blockNumber - 1), BLOCK_SIZE), $skipRows);
         $limit = bcsub(BLOCK_SIZE, $skipRows);
         return $this->select($table, '*', $offset, $limit);
     }
 
-    public function store_block($table, $blockData)
+    public function get_block_hash($table, $blockNumber)
+    {
+        if ($blockNumber < 1)
+            throw new Exception("Block number must be a Natural number");
+
+        $offset = bcmul(($blockNumber - 1), BLOCK_SIZE);
+        return $this->get_hash($table, $offset);
+    }
+
+    public function store_block($table, &$blockData, $force = false, $filter = false)
     {
         if (count($blockData) > 0) {
-            return $this->insert($table, $blockData);
+            if ($filter)
+                return $this->insert_filtered($table, $blockData, $force);
+            else
+                return $this->insert($table, $blockData, $force);
         }
 
         return null;
     }
 
-    public function update_block($table, $blockData)
+    public function update_block($table, &$blockData, $force = false)
     {
         if (count($blockData) > 0) {
-            $logs = array();
+            $OK = $NOK = 0;
             foreach ($blockData as $row) {
-                $logs[] = $this->update($table, $row);
+                if ($force)
+                    $res = $this->update_filtered($table, $row);
+                else
+                    $res = $this->update($table, $row);
+                if ($res)
+                    $OK++;
+                else
+                    $NOK++;
             }
+            if ($NOK === 0)
+                $logs = 'block_updated';
+            else if ($NOK > 0 && $OK > 0)
+                $logs = 'block_partially_updated';
+            else if ($OK === 0)
+                $logs = 'block_update_failed';
+
             return $logs;
         }
 
         return null;
-    }
-
-    public function __destruct()
-    {
-        $this->conn = null;
     }
 }

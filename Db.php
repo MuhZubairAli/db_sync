@@ -339,7 +339,10 @@ class Db
 
     public function get_primary_cols($table)
     {
-        return $this->map[$table];
+        if (!empty($this->map[$table]))
+            return $this->map[$table];
+        else
+            throw new Exception("Given table as {$table} does not exist in the database map");
     }
 
     public function get_primary_cols_string($table)

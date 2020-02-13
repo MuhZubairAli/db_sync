@@ -1,12 +1,14 @@
 <?php
 require_once 'Db.php';
-
+require_once 'Scan.php';
 class Sync
 {
     protected $src_db;
     protected $dest_db;
     protected $map;
     protected $target;
+    protected $scanner;
+
     public function __construct($cons, &$db_map, $target)
     {
         $this->src_db = new Db(
@@ -25,6 +27,11 @@ class Sync
         );
         $this->map = &$db_map;
         $this->target = $target;
+        $this->scanner = new Scan(
+            $cons,
+            $db_map,
+            $target
+        );
     }
 
     /* Main Driver function for syncing databases */
@@ -49,8 +56,8 @@ class Sync
         $d_blocks = floor(bcdiv($dest_count, BLOCK_SIZE, 3));
         $aer_count = bcmod($dest_count, BLOCK_SIZE);
 
-        $s_cs = $this->src_db->get_checksum($tbl_name);
-        $d_cs = $this->dest_db->get_checksum($tbl_name);
+        // $s_cs = $this->src_db->get_checksum($tbl_name);
+        // $d_cs = $this->dest_db->get_checksum($tbl_name);
 
         $logs = [
             'status' => 'not-specified',
@@ -60,15 +67,22 @@ class Sync
             'src_block_count' => $s_blocks,
             'dest_block_count' => $d_blocks,
             'rows_skip_first_block' => $aer_count,
-            'src_checksum' => $s_cs,
-            'dest_checksum' => $d_cs,
+            // 'src_checksum' => $s_cs,
+            // 'dest_checksum' => $d_cs,
             'blockwise_stats' => array()
         ];
 
-        if ($s_cs === $d_cs) {
+        $stt = $this->scanner->execute($tbl_name)[$tbl_name];
+
+        if (
+            ($stt['src_block_count'] == $stt['blockwise_stats']['OK']
+                && $stt['blockwise_stats']['NOK'] === 0)
+            || strcmp($stt['src_checksum']['HASH'], $stt['dest_checksum']['HASH']) === 0
+        ) {
             $logs['status'] = STATUS_COMPLETE;
             return $logs;
         }
+
 
         if (bccomp($src_count, $dest_count) === 0) {
             //todo

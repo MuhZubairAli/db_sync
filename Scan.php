@@ -27,8 +27,11 @@ class Scan
         $this->target = $target;
     }
 
-    public function execute()
+    public function execute($target = NULL)
     {
+        if ($target)
+            $this->target = $target;
+
         $logs = array();
         if ($this->target === 'whole_database') {
             foreach ($this->map as $table => $columns) {
@@ -68,7 +71,7 @@ class Scan
             return $logs;
         }
 
-        if ($dest_count > 0 || $detailed) {
+        if ($d_blocks > 0 || $detailed) {
             $OK = $NOK = 0;
             for ($blockNumber = 1; $blockNumber <= $s_blocks; $blockNumber++) {
                 $offset = bcmul(($blockNumber - 1), V_BLOCK_SIZE);
@@ -86,11 +89,11 @@ class Scan
 
             $logs['blockwise_stats']['OK'] = $OK;
             $logs['blockwise_stats']['NOK'] = $NOK;
-            if ($OK === $s_blocks)
+            if ($OK == $s_blocks && $OK == $d_blocks)
                 $logs['status'] = STATUS_COMPLETE;
             else if ($NOK > 0 && $OK > 0)
                 $logs['status'] = STATUS_PARTIAL;
-            else if ($NOK === $s_blocks)
+            else if ($NOK == $s_blocks)
                 $logs['status'] = STATUS_PENDING;
         }
 

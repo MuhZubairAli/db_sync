@@ -74,13 +74,17 @@ class Sync
 
         $stt = $this->scanner->execute($tbl_name)[$tbl_name];
 
-        if (
-            ($stt['src_block_count'] == $stt['blockwise_stats']['OK']
-                && $stt['blockwise_stats']['NOK'] === 0)
-            || strcmp($stt['src_checksum']['HASH'], $stt['dest_checksum']['HASH']) === 0
-        ) {
+        if (strcmp($stt['src_checksum']['HASH'], $stt['dest_checksum']['HASH']) === 0) {
             $logs['status'] = STATUS_COMPLETE;
             return $logs;
+        } else if (isset($stt['blockwise_stats']['OK']) && isset($stt['blockwise_stats']['NOK'])) {
+            if (
+                $stt['src_block_count'] == $stt['blockwise_stats']['OK']
+                && $stt['blockwise_stats']['NOK'] === 0
+            ) {
+                $logs['status'] = STATUS_COMPLETE;
+                return $logs;
+            }
         }
 
 

@@ -19,5 +19,5 @@ try {
         'backtrace' => $e->getTrace()
     );
 } finally {
-    Response::json($response);
+    Response::json($response, true);
 }

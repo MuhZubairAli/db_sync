@@ -1,16 +1,26 @@
 <?php
 
-class Response {
+class Response
+{
 
-    public static function json($output){
-        if(!is_array($output) && !is_object($output))
-            $output = [ $output ];
+    public static function json($output, $log = false)
+    {
+        if (!is_array($output) && !is_object($output))
+            $output = [$output];
 
         header('Content-Type: application/json');
-        echo json_encode($output);
+        $output = json_encode($output);
+        if ($log)
+            self::log(
+                "\n===================================\n
+                \n{$output}\n
+                \n====================================\n"
+            );
+        echo $output;
     }
 
-    public static function log($message){
+    public static function log($message)
+    {
         error_log(PHP_EOL . $message . PHP_EOL);
     }
 }

@@ -233,7 +233,7 @@ try {
     );
 
     Response::json(
-        $test->run()
+        ["specify the test object"]
     );
 } catch (Exception $e) {
     $response = array(

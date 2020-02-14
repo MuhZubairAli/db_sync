@@ -274,13 +274,13 @@ class Db
         } else
             $cols = $c[0];
         $sql = "
-        DECLARE @EncryptAlgorithm VARCHAR(10)
+        DECLARE @EncryptAlgorithm VARCHAR(3)
         DECLARE @DatatoEncrypt VARCHAR(MAX)
         DECLARE @Index INTEGER
         DECLARE @DataToEncryptLength INTEGER
         DECLARE @EncryptedResult VARBINARY(MAX)
 
-        SET @EncryptAlgorithm = 'SHA2_256'
+        SET @EncryptAlgorithm = 'MD5'
         SET @DatatoEncrypt = LEFT((
             SELECT
                 {$cols}

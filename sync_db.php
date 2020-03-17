@@ -2,7 +2,7 @@
 require_once 'constants.php';
 require_once 'Sync.php';
 require_once 'Response.php';
-require_once 'Config.php';
+require_once 'config.php';
 
 $response = array();
 try {

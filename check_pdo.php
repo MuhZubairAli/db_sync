@@ -26,7 +26,7 @@ if ($stmt === false) {
 }
 
 //while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-while($row = $stmt->fetch()){    
+while($row = $stmt->fetch(PDO::FETCH_ASSOC)){    
 	var_dump($row);
 	echo PHP_EOL;
 }

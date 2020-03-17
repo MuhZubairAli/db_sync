@@ -13,7 +13,7 @@ if ($conn === false) {
 }
 
 // Select Query
-$tsql = "SELECT @@Version AS SQL_VERSION";
+$tsql = "SELECT * FROM SECTION_A ORDER BY prcode OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY";
 
 // Executes the query
 $stmt = sqlsrv_query($conn, $tsql);
@@ -24,7 +24,8 @@ if ($stmt === false) {
 }
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    echo $row['SQL_VERSION'] . PHP_EOL;
+    var_dump($row);
+	echo PHP_EOL;
 }
 
 sqlsrv_free_stmt($stmt);

@@ -9,7 +9,7 @@ class Response
             $output = [$output];
 
         header('Content-Type: application/json');
-        $output = json_encode($output);
+        $output = json_encode($output, JSON_PRETTY_PRINT);
         if ($log)
             self::log(
                 "\n===================================\n

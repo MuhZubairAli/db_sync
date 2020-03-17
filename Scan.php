@@ -48,8 +48,8 @@ class Scan
         $src_count = $this->src_db->count($tbl_name)['COUNT'];
         $dest_count = $this->dest_db->count($tbl_name)['COUNT'];
 
-        $s_blocks = ceil(bcdiv($src_count, V_BLOCK_SIZE, 3));
-        $d_blocks = ceil(bcdiv($dest_count, V_BLOCK_SIZE, 3));
+        $s_blocks = ceil(bcdiv($src_count, V_BLOCK_SIZE, 5));
+        $d_blocks = ceil(bcdiv($dest_count, V_BLOCK_SIZE, 5));
 
         $s_cs = $this->src_db->get_checksum($tbl_name);
         $d_cs = $this->dest_db->get_checksum($tbl_name);
@@ -66,7 +66,7 @@ class Scan
             'status' => 'not specified'
         ];
 
-        if ($s_cs === $d_cs) {
+        if (strcmp($s_cs['HASH'], $d_cs['HASH']) === 0) {
             $logs['status'] = STATUS_COMPLETE;
             return $logs;
         }

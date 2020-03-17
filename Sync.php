@@ -109,13 +109,18 @@ class Sync
                 if ($ecode === 1) {
                     $logs['blockwise_stats'][$current_block] = $this->dest_db->update_block($tbl_name, $dirty_block);
                 } else if ($ecode === 2) {
-                    $logs['blockwise_stats'][$current_block] = $this->dest_db->store_block($tbl_name, $dirty_block, true);
+                    try {
+                        $logs['blockwise_stats'][$current_block] = $this->dest_db->store_block($tbl_name, $dirty_block, true);
+                    } catch (Exception $e) {
+                        $logs['blockwise_stats'][$current_block] = $this->dest_db->update_block($tbl_name, $dirty_block);
+                    }
                 } else {
                     for ($blockNumber = 1; $blockNumber <= $s_blocks; $blockNumber++) {
                         if (!$this->match_blocks($tbl_name, $blockNumber)) {
                             $this->get_store_block($tbl_name, $blockNumber, $logs);
                         }
                     }
+                    $logs['message'] = "Whole table is blockwise scanned and updated";
                     return $logs;
                 }
             } finally {

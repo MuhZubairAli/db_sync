@@ -1,6 +1,6 @@
 <?php
 define('BLOCK_SIZE', 100);
-define('V_BLOCK_SIZE', 1000);
+define('V_BLOCK_SIZE', 10000);
 
 //Status Codes
 define('STATUS_COMPLETE', 'Sync process finished successfully');
